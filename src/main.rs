@@ -9,11 +9,10 @@
 // - Bonus: pretty-print
 
 /*
-    (+ 3 8)
-
-    (+ (- 7 3) 4)
-
-    (if (> 5 3) "bigger" "smaller")
+    *Implementation overview
+    - complete parsing (incl bindings and booleans)
+    - basic arithmetic eval
+    -
 
 */
 
@@ -45,8 +44,11 @@ enum Token {
     Int(isize),
     Bool(bool),
 
+    Identifier(String),
+
     // Keywords
     If,
+    Def,
     And,
     Not,
 
@@ -62,6 +64,8 @@ pub(crate) struct Lexer {
     output: Vec<Token>,
 }
 
+/// Given implementation is rather imperative and fundamentally relies on
+/// state modification during parsing
 impl Lexer {
     pub(crate) fn new(source: String) -> Self {
         Lexer {
@@ -111,18 +115,24 @@ impl Lexer {
 
     fn try_parse_arithmetic(&mut self, token: Token) -> ParseResult<()> {
         self.advance();
-        self.validate_operator_delimeter()?;
+        self.validate_whitespace_delimeter()?;
         self.output.push(token);
 
         Ok(())
     }
 
+    // TODO -> need to carefully test this function
     /// Collecting literals and keywords
     fn try_parse_lexeme(&mut self) -> ParseResult<()> {
-        self.try_parse_string()?;
         self.try_parse_number()?;
 
-        // TODO -> collect keywords
+        if self.peek() == '"' {
+            self.try_parse_string()?;
+        } else {
+            self.try_parse_keyword_or_identifier()?;
+        }
+
+        // TODO -> try_parse_identifier
 
         // TODO -> collect booleans
 
@@ -130,25 +140,27 @@ impl Lexer {
     }
 
     fn try_parse_string(&mut self) -> ParseResult<()> {
-        if self.peek() == '"' {
-            let mut buffer = String::new();
+        let mut buffer = String::new();
 
-            self.advance();
+        self.advance();
 
-            while self.peek() != '"' {
-                buffer.push(self.peek());
-                self.advance();
+        while self.peek() != '"' {
+            if self.is_at_end() {
+                break;
             }
 
+            buffer.push(self.peek());
             self.advance();
-            self.validate_lexeme_delimeter()?;
-            self.output.push(Token::String(buffer));
         }
+
+        self.advance();
+        self.validate_lexeme_delimeter()?;
+        self.output.push(Token::String(buffer));
 
         Ok(())
     }
 
-    /// Given parser & interpreter does not support fractional parts
+    /// Given parser does not support fractional parts
     fn try_parse_number(&mut self) -> ParseResult<()> {
         if self.peek().is_ascii_digit() {
             let mut result = 0;
@@ -180,8 +192,43 @@ impl Lexer {
         Ok(())
     }
 
+    /// Given parser supports only alphabetic characters and underscore for binding names
+    fn try_parse_keyword_or_identifier(&mut self) -> ParseResult<()> {
+        let is_alpha =
+            |c: char| -> bool { (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' };
+
+        let mut buffer = String::new();
+
+        if is_alpha(self.peek()) {
+            while is_alpha(self.peek()) {
+                if self.is_at_end() {
+                    break;
+                }
+
+                buffer.push(self.peek());
+                self.advance();
+            }
+        }
+
+        if buffer.is_empty() {
+            return Err(ParseError::InvalidLexeme);
+        }
+
+        match buffer.as_str() {
+            "def" => self.output.push(Token::Def),
+            "if" => self.output.push(Token::If),
+            // TODO -> and
+            // TODO -> not
+            _ => self.output.push(Token::Identifier(buffer)),
+        }
+
+        self.validate_whitespace_delimeter()?;
+
+        Ok(())
+    }
+
     /// Making sure every operator is followed by whitespace
-    fn validate_operator_delimeter(&self) -> ParseResult<()> {
+    fn validate_whitespace_delimeter(&self) -> ParseResult<()> {
         if self.peek() != ' ' {
             return Err(ParseError::InvalidOperatorDelimeter);
         }
@@ -190,8 +237,6 @@ impl Lexer {
     }
 
     fn validate_lexeme_delimeter(&self) -> ParseResult<()> {
-        dbg!(&self.peek());
-
         if !matches!(self.peek(), ' ' | ')' | ']' | '}') {
             return Err(ParseError::InvalidLexemeDelimeter);
         }
@@ -200,17 +245,27 @@ impl Lexer {
     }
 
     fn peek(&self) -> char {
+        if self.is_at_end() {
+            return '\0';
+        }
+
         self.source[self.cursor]
     }
 
     fn advance(&mut self) {
         self.cursor += 1;
     }
+
+    fn is_at_end(&self) -> bool {
+        self.cursor >= self.source.len()
+    }
 }
 
 fn main() {
-    let source = "(+ 353 1222)".to_string();
-    // let source = r#"("hello")"#.to_string();
+    // let source = "(+ 353 1222)".to_string();
+    // let source = r#"(+ 10 "hello")"#.to_string();
+    // let source = r#"(10 def "awesome" if "hello" 21)"#.to_string();
+    let source = r#"(def _name "John")"#.to_string();
 
     let mut lexer = Lexer::new(source);
     let lexing_res = lexer.parse();
