@@ -119,8 +119,7 @@ impl Lexer {
 
     /// Collecting literals and keywords
     fn try_parse_lexeme(&mut self) -> ParseResult<()> {
-        // TODO -> check is string
-
+        self.try_parse_string()?;
         self.try_parse_number()?;
 
         // TODO -> collect keywords
@@ -130,36 +129,53 @@ impl Lexer {
         Ok(())
     }
 
-    fn parse_string(&mut self) {
-        //
+    fn try_parse_string(&mut self) -> ParseResult<()> {
+        if self.peek() == '"' {
+            let mut buffer = String::new();
+
+            self.advance();
+
+            while self.peek() != '"' {
+                buffer.push(self.peek());
+                self.advance();
+            }
+
+            self.advance();
+            self.validate_lexeme_delimeter()?;
+            self.output.push(Token::String(buffer));
+        }
+
+        Ok(())
     }
 
     /// Given parser & interpreter does not support fractional parts
     fn try_parse_number(&mut self) -> ParseResult<()> {
-        let mut result = 0;
-        let mut collected_digits: Vec<isize> = vec![];
+        if self.peek().is_ascii_digit() {
+            let mut result = 0;
+            let mut collected_digits: Vec<isize> = vec![];
 
-        while self.cursor < self.source.len() && self.peek().is_ascii_digit() {
-            let digit = (self.peek() as u8 - b'0') as isize;
-            collected_digits.push(digit);
-            self.advance();
+            while self.cursor < self.source.len() && self.peek().is_ascii_digit() {
+                let digit = (self.peek() as u8 - b'0') as isize;
+                collected_digits.push(digit);
+                self.advance();
+            }
+
+            if collected_digits.is_empty() {
+                return Err(ParseError::InvalidLexeme);
+            }
+
+            let mut max_exponent = collected_digits.len() - 1;
+            for digit in collected_digits {
+                let with_position = digit * 10_isize.pow(max_exponent as u32);
+
+                // Stops at the minimum value (0 for unsigned types) instead of wrapping/overflowing
+                max_exponent = max_exponent.saturating_sub(1);
+                result += with_position;
+            }
+
+            self.validate_lexeme_delimeter()?;
+            self.output.push(Token::Int(result));
         }
-
-        if collected_digits.is_empty() {
-            return Err(ParseError::InvalidLexeme);
-        }
-
-        let mut max_exponent = collected_digits.len() - 1;
-        for digit in collected_digits {
-            let with_position = digit * 10_isize.pow(max_exponent as u32);
-
-            // Stops at the minimum value (0 for unsigned types) instead of wrapping/overflowing
-            max_exponent = max_exponent.saturating_sub(1);
-            result += with_position;
-        }
-
-        self.validate_lexeme_delimeter()?;
-        self.output.push(Token::Int(result));
 
         Ok(())
     }
@@ -174,6 +190,8 @@ impl Lexer {
     }
 
     fn validate_lexeme_delimeter(&self) -> ParseResult<()> {
+        dbg!(&self.peek());
+
         if !matches!(self.peek(), ' ' | ')' | ']' | '}') {
             return Err(ParseError::InvalidLexemeDelimeter);
         }
@@ -192,6 +210,7 @@ impl Lexer {
 
 fn main() {
     let source = "(+ 353 1222)".to_string();
+    // let source = r#"("hello")"#.to_string();
 
     let mut lexer = Lexer::new(source);
     let lexing_res = lexer.parse();
