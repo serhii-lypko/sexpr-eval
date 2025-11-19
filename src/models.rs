@@ -1,5 +1,6 @@
+/// While in traditional
 #[derive(Debug, PartialEq, Clone)]
-pub enum Token {
+pub(crate) enum Token {
     // Base
     OpenParen,
     CloseParen,

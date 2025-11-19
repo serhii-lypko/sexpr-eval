@@ -2,16 +2,16 @@ use crate::models::Token;
 
 // TODO -> it would be really nice to have position for debugging
 #[derive(Debug, PartialEq)]
-pub enum ParseError {
+pub enum LexError {
     InvalidOperatorDelimeter,
     InvalidLexemeDelimeter,
     InvalidLexeme,
     InvalidNumber,
 }
 
-pub type ParseResult<T> = Result<T, ParseError>;
+pub(crate) type LexResult<T> = Result<T, LexError>;
 
-pub struct Lexer {
+pub(crate) struct Lexer {
     cursor: usize,
 
     // TODO -> implement using small vec?
@@ -23,7 +23,7 @@ pub struct Lexer {
 /// Given implementation is rather imperative and fundamentally relies on
 /// state modification during parsing
 impl Lexer {
-    pub fn new(source: String) -> Self {
+    pub(crate) fn new(source: String) -> Self {
         Lexer {
             cursor: 0,
             source: source.chars().collect(),
@@ -31,52 +31,52 @@ impl Lexer {
         }
     }
 
-    pub fn parse(&mut self) -> ParseResult<Vec<Token>> {
+    pub(crate) fn lex(&mut self) -> LexResult<Vec<Token>> {
         while self.cursor < self.source.len() {
             let char = self.source[self.cursor];
 
             match char {
-                '(' => self.parse_base(Token::OpenParen),
-                ')' => self.parse_base(Token::CloseParen),
-                ';' => self.parse_base(Token::Semicolon),
+                '(' => self.extract_base(Token::OpenParen),
+                ')' => self.extract_base(Token::CloseParen),
+                ';' => self.extract_base(Token::Semicolon),
 
                 // TODO -> handle comments (incl multiline)
                 // TODO -> handle new lines
                 ' ' => self.advance(),
 
-                '+' => self.try_parse_arithmetic(Token::Plus)?,
+                '+' => self.try_extract_arithmetic(Token::Plus)?,
                 '-' => {
                     // TODO -> needs to handle negative numbers as single atoms
-                    self.try_parse_arithmetic(Token::Minus)?;
+                    self.try_extract_arithmetic(Token::Minus)?;
                 }
-                '*' => self.try_parse_arithmetic(Token::Mult)?,
-                '/' => self.try_parse_arithmetic(Token::Div)?,
+                '*' => self.try_extract_arithmetic(Token::Mult)?,
+                '/' => self.try_extract_arithmetic(Token::Div)?,
 
-                '=' => self.parse_condition(Token::Equal, Token::EqualEqual),
+                '=' => self.extract_condition(Token::Equal, Token::EqualEqual),
                 '!' => {
                     if self.match_next('=') {
                         self.output.push(Token::NotEuqal);
                         self.advance();
                     } else {
-                        return Err(ParseError::InvalidLexeme);
+                        return Err(LexError::InvalidLexeme);
                     }
                 }
-                '>' => self.parse_condition(Token::Greater, Token::GreaterEqual),
-                '<' => self.parse_condition(Token::Less, Token::LessEqual),
+                '>' => self.extract_condition(Token::Greater, Token::GreaterEqual),
+                '<' => self.extract_condition(Token::Less, Token::LessEqual),
 
-                _ => self.try_parse_lexeme()?,
+                _ => self.try_extract_lexeme()?,
             }
         }
 
         Ok(std::mem::take(&mut self.output))
     }
 
-    fn parse_base(&mut self, token: Token) {
+    fn extract_base(&mut self, token: Token) {
         self.advance();
         self.output.push(token);
     }
 
-    fn try_parse_arithmetic(&mut self, token: Token) -> ParseResult<()> {
+    fn try_extract_arithmetic(&mut self, token: Token) -> LexResult<()> {
         self.advance();
         self.validate_whitespace_delimeter()?;
         self.output.push(token);
@@ -84,7 +84,7 @@ impl Lexer {
         Ok(())
     }
 
-    fn parse_condition(&mut self, base_t: Token, match_t: Token) {
+    fn extract_condition(&mut self, base_t: Token, match_t: Token) {
         if self.match_next('=') {
             self.output.push(match_t);
         } else {
@@ -96,19 +96,19 @@ impl Lexer {
 
     // TODO -> need to carefully test this function
     /// Collecting literals and keywords
-    fn try_parse_lexeme(&mut self) -> ParseResult<()> {
-        self.try_parse_number()?;
+    fn try_extract_lexeme(&mut self) -> LexResult<()> {
+        self.try_extract_number()?;
 
         if self.peek() == '"' {
-            self.try_parse_string()?;
+            self.try_extract_string()?;
         } else {
-            self.try_parse_keyword_or_identifier()?;
+            self.try_extract_keyword_or_identifier()?;
         }
 
         Ok(())
     }
 
-    fn try_parse_string(&mut self) -> ParseResult<()> {
+    fn try_extract_string(&mut self) -> LexResult<()> {
         let mut buffer = String::new();
 
         self.advance();
@@ -130,7 +130,7 @@ impl Lexer {
     }
 
     /// Given parser does not support fractional parts
-    fn try_parse_number(&mut self) -> ParseResult<()> {
+    fn try_extract_number(&mut self) -> LexResult<()> {
         if self.peek().is_ascii_digit() {
             let mut result = 0;
             let mut collected_digits: Vec<isize> = vec![];
@@ -142,7 +142,7 @@ impl Lexer {
             }
 
             if collected_digits.is_empty() {
-                return Err(ParseError::InvalidLexeme);
+                return Err(LexError::InvalidLexeme);
             }
 
             let mut max_exponent = collected_digits.len() - 1;
@@ -162,7 +162,7 @@ impl Lexer {
     }
 
     /// Given parser supports only alphabetic characters and underscore for binding names
-    fn try_parse_keyword_or_identifier(&mut self) -> ParseResult<()> {
+    fn try_extract_keyword_or_identifier(&mut self) -> LexResult<()> {
         let is_alpha =
             |c: char| -> bool { (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' };
 
@@ -179,7 +179,7 @@ impl Lexer {
             }
 
             if buffer.is_empty() {
-                return Err(ParseError::InvalidLexeme);
+                return Err(LexError::InvalidLexeme);
             }
 
             match buffer.as_str() {
@@ -200,25 +200,25 @@ impl Lexer {
     }
 
     /// Making sure every operator is followed by whitespace or closing paren
-    fn validate_whitespace_delimeter(&self) -> ParseResult<()> {
+    fn validate_whitespace_delimeter(&self) -> LexResult<()> {
         if self.is_at_end() {
             return Ok(());
         }
 
         if !matches!(self.peek(), ' ' | ')') {
-            return Err(ParseError::InvalidOperatorDelimeter);
+            return Err(LexError::InvalidOperatorDelimeter);
         }
 
         Ok(())
     }
 
-    fn validate_lexeme_delimeter(&self) -> ParseResult<()> {
+    fn validate_lexeme_delimeter(&self) -> LexResult<()> {
         if self.is_at_end() {
             return Ok(());
         }
 
         if !matches!(self.peek(), ' ' | ')' | ']' | '}') {
-            return Err(ParseError::InvalidLexemeDelimeter);
+            return Err(LexError::InvalidLexemeDelimeter);
         }
 
         Ok(())
@@ -262,14 +262,14 @@ mod tests {
     #[test]
     fn test_basic_parens() {
         let mut lexer = Lexer::new("()".to_string());
-        let tokens = lexer.parse().unwrap();
+        let tokens = lexer.lex().unwrap();
         assert_eq!(tokens, vec![Token::OpenParen, Token::CloseParen]);
     }
 
     #[test]
     fn test_arithmetic_operators() {
         let mut lexer = Lexer::new("(+ 1 2)".to_string());
-        let tokens = lexer.parse().unwrap();
+        let tokens = lexer.lex().unwrap();
         assert_eq!(
             tokens,
             vec![
@@ -285,7 +285,7 @@ mod tests {
     #[test]
     fn test_all_arithmetic_operators() {
         let mut lexer = Lexer::new("(+ - * /)".to_string());
-        let tokens = lexer.parse().unwrap();
+        let tokens = lexer.lex().unwrap();
         assert_eq!(
             tokens,
             vec![
@@ -302,7 +302,7 @@ mod tests {
     #[test]
     fn test_numbers() {
         let mut lexer = Lexer::new("(123 456 0)".to_string());
-        let tokens = lexer.parse().unwrap();
+        let tokens = lexer.lex().unwrap();
         assert_eq!(
             tokens,
             vec![
@@ -318,7 +318,7 @@ mod tests {
     #[test]
     fn test_strings() {
         let mut lexer = Lexer::new(r#"("hello" "world")"#.to_string());
-        let tokens = lexer.parse().unwrap();
+        let tokens = lexer.lex().unwrap();
         assert_eq!(
             tokens,
             vec![
@@ -333,7 +333,7 @@ mod tests {
     #[test]
     fn test_booleans() {
         let mut lexer = Lexer::new("(true false)".to_string());
-        let tokens = lexer.parse().unwrap();
+        let tokens = lexer.lex().unwrap();
         assert_eq!(
             tokens,
             vec![
@@ -348,7 +348,7 @@ mod tests {
     #[test]
     fn test_keywords() {
         let mut lexer = Lexer::new("(if def print)".to_string());
-        let tokens = lexer.parse().unwrap();
+        let tokens = lexer.lex().unwrap();
         assert_eq!(
             tokens,
             vec![
@@ -364,7 +364,7 @@ mod tests {
     #[test]
     fn test_identifiers() {
         let mut lexer = Lexer::new("(foo bar _baz)".to_string());
-        let tokens = lexer.parse().unwrap();
+        let tokens = lexer.lex().unwrap();
         assert_eq!(
             tokens,
             vec![
@@ -380,7 +380,7 @@ mod tests {
     #[test]
     fn test_comparison_operators() {
         let mut lexer = Lexer::new("(< > <= >= == !=)".to_string());
-        let tokens = lexer.parse().unwrap();
+        let tokens = lexer.lex().unwrap();
         assert_eq!(
             tokens,
             vec![
@@ -399,7 +399,7 @@ mod tests {
     #[test]
     fn test_nested_expression() {
         let mut lexer = Lexer::new("(+ (* 2 3) 4)".to_string());
-        let tokens = lexer.parse().unwrap();
+        let tokens = lexer.lex().unwrap();
         assert_eq!(
             tokens,
             vec![
@@ -419,7 +419,7 @@ mod tests {
     #[test]
     fn test_if_expression() {
         let mut lexer = Lexer::new(r#"(if (< 10 12) "yes" "no")"#.to_string());
-        let tokens = lexer.parse().unwrap();
+        let tokens = lexer.lex().unwrap();
         assert_eq!(
             tokens,
             vec![
@@ -440,7 +440,7 @@ mod tests {
     #[test]
     fn test_complex_expression() {
         let mut lexer = Lexer::new(r#"(if (<= 10 12) (print "hey"))"#.to_string());
-        let tokens = lexer.parse().unwrap();
+        let tokens = lexer.lex().unwrap();
         assert_eq!(
             tokens,
             vec![
@@ -463,7 +463,7 @@ mod tests {
     #[test]
     fn test_empty_string() {
         let mut lexer = Lexer::new(r#"("")"#.to_string());
-        let tokens = lexer.parse().unwrap();
+        let tokens = lexer.lex().unwrap();
         assert_eq!(
             tokens,
             vec![
@@ -477,15 +477,15 @@ mod tests {
     #[test]
     fn test_single_number() {
         let mut lexer = Lexer::new("42".to_string());
-        let tokens = lexer.parse().unwrap();
+        let tokens = lexer.lex().unwrap();
         assert_eq!(tokens, vec![Token::Int(42)]);
     }
 
     #[test]
     fn test_operator_without_space_fails() {
         let mut lexer = Lexer::new("(+1 2)".to_string());
-        let result = lexer.parse();
+        let result = lexer.lex();
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err(), ParseError::InvalidOperatorDelimeter);
+        assert_eq!(result.unwrap_err(), LexError::InvalidOperatorDelimeter);
     }
 }

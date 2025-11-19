@@ -1,40 +1,35 @@
+mod eval;
 mod lexer;
 mod models;
+mod parser;
 
+use eval::eval;
 use lexer::Lexer;
-
-// - literal values: numbers, strings, booleans
-// - basic arithmetics: +, -, *, /
-// - lazy if statements with basic conditions: <, >, <=, >=,  ==, !=
-// - while loop (using recursion?)
-// - handling comments
-// - handling newlines and whitespaces
-//
-// - Bonus: REPL!
-// - Bonus: pretty-print
+use parser::build_ast;
 
 /*
-    *Implementation overview
-    - complete parsing (incl bindings and booleans)
-    - basic arithmetic eval
-    -
+    * Memory model:
+    - Garbage collected
+    - Cons cells (linked lists) as fundamental structure
+    - Symbol tables for variable/function lookups
 
 */
 
-fn main() {
-    // let source = "(+ 353 1222)".to_string();
-    // let source = r#"(+ 10 "hello")"#.to_string();
-    // let source = r#"(10 def "awesome" if "hello" 21)"#.to_string();
+// TODO -> pretty print (but for which stage exactly?)
 
-    // let source = r#"(def _name "John")"#.to_string();
+fn main() {
+    let source = "(+ 10 15)".to_string();
+
     // let source = r#"(if (< 10 12) (print "hey"))"#.to_string();
-    let source = r#"(if (<= 10 12) (print "hey"))"#.to_string();
+    // let source = r#"(if (<= 10 12) (print "hey"))"#.to_string();
 
     let mut lexer = Lexer::new(source);
 
-    match lexer.parse() {
+    match lexer.lex() {
         Ok(tokens) => {
-            dbg!(tokens);
+            dbg!(&tokens);
+
+            let ast = build_ast(tokens);
         }
         Err(e) => {
             eprintln!("Lexing error: {:?}", e);
