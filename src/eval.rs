@@ -1,4 +1,4 @@
-use crate::models::Token;
+// use crate::models::Token;
 
 #[derive(Debug, PartialEq)]
 pub enum EvalError {
@@ -20,9 +20,9 @@ pub(crate) type EvalResult<T> = Result<T, EvalError>;
   }
 */
 
-/// Evaluates s-expressions (recursively processes lists, resolves symbols)
-pub fn eval(tokens: Vec<Token>) -> EvalResult<()> {
-    //
+// Evaluates s-expressions (recursively processes lists, resolves symbols)
+// pub fn eval(tokens: Vec<Token>) -> EvalResult<()> {
+//     //
 
-    Ok(())
-}
+//     Ok(())
+// }
