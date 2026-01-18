@@ -21,6 +21,7 @@ fn handle_read(source: &str) -> (Lexeme, usize) {
         let char_bytes = ch.len_utf8();
 
         match ch {
+            ';' => return (Lexeme::None, offset),
             '(' => {
                 let (list, offset_advance) = handle_read(&remaining[char_bytes..]);
                 res.push(list);

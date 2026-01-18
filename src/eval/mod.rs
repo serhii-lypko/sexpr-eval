@@ -1,16 +1,17 @@
-mod models;
 mod arithmetic;
 mod conditional;
+mod models;
 
 #[cfg(test)]
 mod tests;
 
-pub(crate) use models::Value;
 use crate::reader::Lexeme;
+pub(crate) use models::Value;
 
 // TODO -> needs to retun Result
 pub(crate) fn eval(lexeme: Lexeme) -> Value {
     match lexeme {
+        Lexeme::None => Value::None,
         Lexeme::Number(number) => Value::Number(number),
         Lexeme::Symbol(symbol) => Value::Symbol(symbol),
         Lexeme::List(lexemes) => {

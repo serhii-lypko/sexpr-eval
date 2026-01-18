@@ -14,7 +14,8 @@ use reader::read;
     - [ ] Quoting
 
     - [ ] Pretty printing
-    - [ ] Basic REPL with autocompletion based on simple prefix-trie
+    - [ ] Basic REPL
+    - [ ] REPL with autocompletion based on simple prefix-trie
 
 
     Optimizations & improvements:
@@ -26,8 +27,19 @@ use reader::read;
 */
 
 fn main() {
-    // let source = "(+ 3 (* 12 (/ 800 2)))".to_string();
-    let source = "(if (> 1 2) (+ 13 12) (if (> 12 13) 2 (* 12 12)))".to_string();
+    // let source = r#"
+    //     (define x 10)
+    //     (define y (* x 2))
+    // "#
+    // .to_string();
+
+    let source = r#"
+        (define x 10)
+        (define y 20)
+
+        (+ x y)
+    "#
+    .to_string();
 
     let lexems = read(source);
     // dbg!(lexems);
