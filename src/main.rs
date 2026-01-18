@@ -6,8 +6,9 @@ mod reader;
 /*
     Interesting features to implement:
     - [ ] Condition branches
+    - [ ] Execution runtime!
     - [ ] Variables
-    - [ ] Functions
+    - [ ] Functions, lambdas - practice De Bruijn indexes
     - [ ] Basic list manipulations
     - [ ] Quoting
 
@@ -25,84 +26,175 @@ mod reader;
 
 fn main() {
     // let source = "(+ 3 (* 12 (/ 800 2)))".to_string();
-    let source = "(if (> 1 2) a b)".to_string();
+    let source = "(if (> 1 2) (+ 13 12) (if (> 12 13) 2 (* 12 12)))".to_string();
 
     let lexems = read(source);
-
     // dbg!(lexems);
 
     let eval_res = eval(lexems);
     dbg!(&eval_res);
 }
 
-// TODO -> for now eval result can be only usize. But need to evolve to more complex structure.
-// #[derive(Debug)]
-// struct EvalRes(isize);
-
-#[derive(Debug)]
-enum ResultValue {
+#[derive(Debug, PartialEq, Eq)]
+enum Value {
     Number(isize),
     Symbol(String),
+    Boolean(bool),
 }
 
-/*
-    TODO -> implement with:
-    - [ ] Basic recursion
-    - [ ] Trampoline
-*/
 // TODO -> needs to retun Result
-fn eval(lexeme: Lexeme) -> ResultValue {
+fn eval(lexeme: Lexeme) -> Value {
     match lexeme {
-        Lexeme::Number(number) => todo!(),
-        Lexeme::Symbol(_) => todo!(),
+        Lexeme::Number(number) => Value::Number(number),
+        Lexeme::Symbol(symbol) => Value::Symbol(symbol),
         Lexeme::List(lexemes) => {
-            if let Some(res) = try_eval_simple_arithmetics(lexemes) {
+            if let Some(res) = try_eval_simple_arithmetics(lexemes.clone()) {
                 return res;
             }
 
-            todo!()
+            try_eval_special_form(lexemes)
         }
     }
 }
 
 // TODO -> needs to return Result
-fn try_eval_simple_arithmetics(lexems: Vec<Lexeme>) -> Option<ResultValue> {
+fn try_eval_simple_arithmetics(lexems: Vec<Lexeme>) -> Option<Value> {
     let head = &lexems[0];
 
     match head {
         Lexeme::Symbol(maybe_operator) => match maybe_operator.as_str() {
             "+" => {
-                let res =
-                    handle_builtin_arithmetics(lexems, |lhs, rhs| ResultValue::Number(lhs + rhs));
+                let res = handle_builtin_arithmetics(lexems, |lhs, rhs| Value::Number(lhs + rhs));
                 Some(res)
             }
             "*" => {
-                let res =
-                    handle_builtin_arithmetics(lexems, |lhs, rhs| ResultValue::Number(lhs * rhs));
+                let res = handle_builtin_arithmetics(lexems, |lhs, rhs| Value::Number(lhs * rhs));
                 Some(res)
             }
             "-" => {
-                let res =
-                    handle_builtin_arithmetics(lexems, |lhs, rhs| ResultValue::Number(lhs - rhs));
+                let res = handle_builtin_arithmetics(lexems, |lhs, rhs| Value::Number(lhs - rhs));
                 Some(res)
             }
             "/" => {
-                let res =
-                    handle_builtin_arithmetics(lexems, |lhs, rhs| ResultValue::Number(lhs / rhs));
+                let res = handle_builtin_arithmetics(lexems, |lhs, rhs| Value::Number(lhs / rhs));
                 Some(res)
             }
-            _ => {
-                todo!()
-            }
+            _ => None,
         },
         _ => None,
     }
 }
 
 // TODO -> needs to return Result
-fn handle_builtin_arithmetics<T>(lexems: Vec<Lexeme>, handler: T) -> ResultValue
+fn try_eval_special_form(lexems: Vec<Lexeme>) -> Value {
+    let head = &lexems[0];
+
+    if let Lexeme::Symbol(head_symbol) = head {
+        match head_symbol.as_str() {
+            "if" => return eval_lazy_if(lexems),
+
+            // Return Symbol as is
+            _ => return Value::Symbol(head_symbol.clone()),
+        }
+    }
+
+    todo!()
+}
+
+// (if (< 3 5) a b)
+fn eval_lazy_if(lexems: Vec<Lexeme>) -> Value {
+    if lexems.len() != 4 {
+        // TODO -> return Error
+        todo!()
+    }
+
+    let cond = &lexems[1];
+    let lhs = &lexems[2];
+    let rhs = &lexems[3];
+
+    let is_truthy = eval_cond(cond.clone());
+
+    if is_truthy {
+        eval(lhs.clone())
+    } else {
+        eval(rhs.clone())
+    }
+}
+
+// TODO -> return Result
+fn eval_cond(cond: Lexeme) -> bool {
+    match cond {
+        Lexeme::List(lexemes) => {
+            if lexemes.len() != 3 {
+                // TODO -> return Err
+                todo!()
+            }
+
+            let cond_head = &lexemes[0];
+            let lhs = &lexemes[1];
+            let rhs = &lexemes[2];
+
+            let lhs_reduction_res = eval(lhs.clone());
+            let rhs_reduction_res = eval(rhs.clone());
+
+            match cond_head {
+                Lexeme::Symbol(symbol_head) => match symbol_head.as_str() {
+                    // Expected to compare only numbers
+                    ">" => handle_bultin_comparison(
+                        lhs_reduction_res,
+                        rhs_reduction_res,
+                        |left_val, right_val| left_val > right_val,
+                    ),
+                    "<" => handle_bultin_comparison(
+                        lhs_reduction_res,
+                        rhs_reduction_res,
+                        |left_val, right_val| left_val < right_val,
+                    ),
+                    ">=" => handle_bultin_comparison(
+                        lhs_reduction_res,
+                        rhs_reduction_res,
+                        |left_val, right_val| left_val >= right_val,
+                    ),
+                    "<=" => handle_bultin_comparison(
+                        lhs_reduction_res,
+                        rhs_reduction_res,
+                        |left_val, right_val| left_val <= right_val,
+                    ),
+
+                    // Equality comparison applicable to all Value types
+                    "==" => lhs_reduction_res == rhs_reduction_res,
+                    "!=" => lhs_reduction_res != rhs_reduction_res,
+                    _ => todo!(),
+                },
+                _ => todo!(),
+            }
+        }
+        _ => {
+            // TODO -> return Err
+            todo!()
+        }
+    }
+}
+
+fn handle_bultin_comparison<T>(lhs: Value, rhs: Value, handler: T) -> bool
 where
-    T: FnOnce(isize, isize) -> ResultValue,
+    T: FnOnce(isize, isize) -> bool,
+{
+    match (lhs, rhs) {
+        (Value::Number(left_val), Value::Number(right_val)) => {
+            return handler(left_val, right_val);
+        }
+        _ => {
+            // TODO -> retunr Err
+            todo!()
+        }
+    }
+}
+
+// TODO -> return Result
+fn handle_builtin_arithmetics<T>(lexems: Vec<Lexeme>, handler: T) -> Value
+where
+    T: FnOnce(isize, isize) -> Value,
 {
     if lexems.len() != 3 {
         // TODO -> return Error
@@ -115,15 +207,15 @@ where
     let res = match (&lhs, &rhs) {
         (Lexeme::Number(left_val), Lexeme::Number(right_val)) => handler(*left_val, *right_val),
         (Lexeme::List(_), Lexeme::Number(right_val)) => match eval(lhs) {
-            ResultValue::Number(lhs_val) => handler(lhs_val, *right_val),
-            ResultValue::Symbol(_) => {
+            Value::Number(lhs_val) => handler(lhs_val, *right_val),
+            _ => {
                 // TODO -> handle error
                 todo!()
             }
         },
         (Lexeme::Number(left_val), Lexeme::List(_)) => match eval(rhs) {
-            ResultValue::Number(rhs_val) => handler(*left_val, rhs_val),
-            ResultValue::Symbol(_) => {
+            Value::Number(rhs_val) => handler(*left_val, rhs_val),
+            _ => {
                 // TODO -> handle error
                 todo!()
             }
@@ -133,9 +225,7 @@ where
             let rhs_reduction_res = eval(rhs);
 
             match (lhs_reduction_res, rhs_reduction_res) {
-                (ResultValue::Number(left_val), ResultValue::Number(right_val)) => {
-                    handler(left_val, right_val)
-                }
+                (Value::Number(left_val), Value::Number(right_val)) => handler(left_val, right_val),
                 _ => {
                     // TODO -> handle error
                     todo!()
@@ -150,6 +240,8 @@ where
 
     res
 }
+
+/* -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- */
 
 // TODO -> handle floats
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -329,7 +421,7 @@ mod tests {
         let result = eval(lexeme);
 
         match result {
-            ResultValue::Number(n) => assert_eq!(n, 25),
+            Value::Number(n) => assert_eq!(n, 25),
             _ => panic!("Expected number result"),
         }
     }
@@ -341,7 +433,7 @@ mod tests {
         let result = eval(lexeme);
 
         match result {
-            ResultValue::Number(n) => assert_eq!(n, 42),
+            Value::Number(n) => assert_eq!(n, 42),
             _ => panic!("Expected number result"),
         }
     }
@@ -353,7 +445,7 @@ mod tests {
         let result = eval(lexeme);
 
         match result {
-            ResultValue::Number(n) => assert_eq!(n, 21), // 3*2=6, 6+15=21
+            Value::Number(n) => assert_eq!(n, 21), // 3*2=6, 6+15=21
             _ => panic!("Expected number result"),
         }
     }
@@ -365,7 +457,7 @@ mod tests {
         let result = eval(lexeme);
 
         match result {
-            ResultValue::Number(n) => assert_eq!(n, 30), // (2+3)*(10-4) = 5*6 = 30
+            Value::Number(n) => assert_eq!(n, 30), // (2+3)*(10-4) = 5*6 = 30
             _ => panic!("Expected number result"),
         }
     }
