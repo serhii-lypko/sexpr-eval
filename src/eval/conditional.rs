@@ -1,8 +1,11 @@
+use crate::eval::{Value, eval};
 use crate::reader::Lexeme;
-use crate::eval::{eval, Value};
+
+use crate::Environment;
+use std::rc::Rc;
 
 // (if (< 3 5) a b)
-pub(super) fn eval_lazy_if(lexems: Vec<Lexeme>) -> Value {
+pub(super) fn eval_lazy_if(lexems: Vec<Lexeme>, mut env: Rc<Environment>) -> Value {
     if lexems.len() != 4 {
         // TODO -> return Error
         todo!()
@@ -12,17 +15,17 @@ pub(super) fn eval_lazy_if(lexems: Vec<Lexeme>) -> Value {
     let lhs = &lexems[2];
     let rhs = &lexems[3];
 
-    let is_truthy = eval_cond(cond.clone());
+    let is_truthy = eval_cond(cond.clone(), env.clone());
 
     if is_truthy {
-        eval(lhs.clone())
+        eval(lhs.clone(), env)
     } else {
-        eval(rhs.clone())
+        eval(rhs.clone(), env)
     }
 }
 
 // TODO -> return Result
-fn eval_cond(cond: Lexeme) -> bool {
+fn eval_cond(cond: Lexeme, mut env: Rc<Environment>) -> bool {
     match cond {
         Lexeme::List(lexemes) => {
             if lexemes.len() != 3 {
@@ -34,8 +37,8 @@ fn eval_cond(cond: Lexeme) -> bool {
             let lhs = &lexemes[1];
             let rhs = &lexemes[2];
 
-            let lhs_reduction_res = eval(lhs.clone());
-            let rhs_reduction_res = eval(rhs.clone());
+            let lhs_reduction_res = eval(lhs.clone(), env.clone());
+            let rhs_reduction_res = eval(rhs.clone(), env);
 
             match cond_head {
                 Lexeme::Symbol(symbol_head) => match symbol_head.as_str() {

@@ -4,7 +4,10 @@ mod reader;
 use eval::eval;
 use reader::read;
 
+use crate::eval::Value;
+use reader::Lexeme;
 use std::collections::HashMap;
+use std::rc::Rc;
 
 /*
     Interesting features to implement:
@@ -35,20 +38,29 @@ use std::collections::HashMap;
     - [ ] Threaded runtime
 */
 
+// TODO -> fix comments (now eliminate entire source input)
 fn main() {
-    let source = r#"
-        (+ 10 12)
-        (* 3 2)
-    "#
-    .to_string();
+    // let source = r#"
+    //     (+ 10
+    //         (* 3 2))
+
+    //     (* 3 2)
+    // "#
+    // .to_string();
 
     // let source = r#"
-    //     (define x 10)
-    //     (define y 20)
+    //     (def-var x 10)
+    //     (def-var y 20)
 
     //     (+ x y)
     // "#
     // .to_string();
+
+    let source = r#"
+        (def-var x 10)
+        (def-var y 10)
+    "#
+    .to_string();
 
     // let eval_res = eval(lexems);
     // dbg!(&eval_res);
@@ -59,28 +71,43 @@ fn main() {
 
 // TODO -> implement display
 
-struct Environment {
-    //
+pub(crate) struct Environment {
+    bindings_storage: HashMap<String, Value>,
 }
 
 impl Environment {
     fn new() -> Self {
-        Environment {}
+        Environment {
+            bindings_storage: HashMap::new(),
+        }
     }
 }
 
-struct Runtime {}
+struct Runtime {
+    env: Rc<Environment>,
+}
 
 impl Runtime {
     fn new() -> Self {
-        Runtime {
-            // TODO -> introduce shared Environment (with Rc?)
-        }
+        let env = Environment::new();
+
+        Runtime { env: Rc::new(env) }
     }
 
     fn run(&mut self, source: String) {
-        let lexems = read(source);
+        let lexeme = read(source);
 
-        dbg!(lexems);
+        // TODO -> not entirely happy with all that clones here
+        if let Lexeme::List(expressions) = &lexeme {
+            if lexeme.has_inner_lists() {
+                for expr in expressions {
+                    let eval_res = eval(expr.clone(), self.env.clone());
+                }
+
+                return;
+            }
+
+            let eval_res = eval(lexeme, self.env.clone());
+        }
     }
 }
