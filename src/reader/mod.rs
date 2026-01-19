@@ -21,7 +21,7 @@ fn handle_read(source: &str) -> (Lexeme, usize) {
         let char_bytes = ch.len_utf8();
 
         match ch {
-            ';' => return (Lexeme::None, offset),
+            ';' => return (Lexeme::None, offset), // FIXME: not entirely accurate
             '(' => {
                 let (list, offset_advance) = handle_read(&remaining[char_bytes..]);
                 res.push(list);
@@ -30,7 +30,7 @@ fn handle_read(source: &str) -> (Lexeme, usize) {
                 continue;
             }
             ')' => return (Lexeme::List(res), offset + 1),
-            ' ' => {
+            ' ' | '\n' => {
                 remaining = &remaining[char_bytes..];
                 offset += char_bytes;
                 continue;
@@ -49,9 +49,9 @@ fn handle_read(source: &str) -> (Lexeme, usize) {
                     continue;
                 }
 
-                // All the reset should be interpreted as symbol lexems
+                // All the rest should be interpreted as symbol lexems
                 let (symbol_lexeme, offset_advance) =
-                    process_lexeme(&remaining, |&&b| b != b' ' && b != b')');
+                    process_lexeme(&remaining, |&&b| b != b' ' && b != b')' && b != b'\n');
                 res.push(Lexeme::Symbol(symbol_lexeme.to_string()));
                 remaining = &remaining[offset_advance..];
                 offset += offset_advance;
@@ -86,6 +86,26 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_read_raw_number() {
+        let source = "123".to_string();
+
+        let expected = Lexeme::Number(123);
+        let res = read(source);
+
+        assert_eq!(expected, res);
+    }
+
+    #[test]
+    fn test_read_raw_symbol() {
+        let source = "abc".to_string();
+
+        let expected = Lexeme::Symbol("abc".to_string());
+        let res = read(source);
+
+        assert_eq!(expected, res);
+    }
 
     #[test]
     fn test_read_simple_addition() {
@@ -161,6 +181,81 @@ mod tests {
         let source = "()".to_string();
 
         let expected = Lexeme::List(vec![]);
+        let res = read(source);
+
+        assert_eq!(expected, res);
+    }
+
+    #[test]
+    fn test_read_with_newlines() {
+        let source = "(+\n10\n15)".to_string();
+
+        let expected = Lexeme::List(vec![
+            Lexeme::Symbol("+".to_string()),
+            Lexeme::Number(10),
+            Lexeme::Number(15),
+        ]);
+        let res = read(source);
+
+        assert_eq!(expected, res);
+    }
+
+    #[test]
+    fn test_read_multiline_nested() {
+        let source = "(+
+            10
+            (* 12 22))"
+            .to_string();
+
+        let expected = Lexeme::List(vec![
+            Lexeme::Symbol("+".to_string()),
+            Lexeme::Number(10),
+            Lexeme::List(vec![
+                Lexeme::Symbol("*".to_string()),
+                Lexeme::Number(12),
+                Lexeme::Number(22),
+            ]),
+        ]);
+        let res = read(source);
+
+        assert_eq!(expected, res);
+    }
+
+    #[test]
+    fn test_read_multiline_complex() {
+        let source = "(+
+            (* 2
+               (/ 10 5))
+            3)"
+        .to_string();
+
+        let expected = Lexeme::List(vec![
+            Lexeme::Symbol("+".to_string()),
+            Lexeme::List(vec![
+                Lexeme::Symbol("*".to_string()),
+                Lexeme::Number(2),
+                Lexeme::List(vec![
+                    Lexeme::Symbol("/".to_string()),
+                    Lexeme::Number(10),
+                    Lexeme::Number(5),
+                ]),
+            ]),
+            Lexeme::Number(3),
+        ]);
+        let res = read(source);
+
+        assert_eq!(expected, res);
+    }
+
+    #[test]
+    fn test_read_mixed_whitespace() {
+        let source = "(  +  \n  10  \n\n  15  )".to_string();
+
+        let expected = Lexeme::List(vec![
+            Lexeme::Symbol("+".to_string()),
+            Lexeme::Number(10),
+            Lexeme::Number(15),
+        ]);
         let res = read(source);
 
         assert_eq!(expected, res);
