@@ -6,6 +6,7 @@ mod models;
 #[cfg(test)]
 mod tests;
 
+use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::Environment;
@@ -13,7 +14,7 @@ use crate::reader::Lexeme;
 pub(crate) use models::Value;
 
 // TODO -> needs to retun Result
-pub(crate) fn eval(lexeme: Lexeme, mut env: Rc<Environment>) -> Value {
+pub(crate) fn eval(lexeme: Lexeme, env: Rc<RefCell<Environment>>) -> Value {
     match lexeme {
         Lexeme::None => Value::None,
         Lexeme::Number(number) => Value::Number(number),
@@ -30,7 +31,7 @@ pub(crate) fn eval(lexeme: Lexeme, mut env: Rc<Environment>) -> Value {
 }
 
 // TODO -> needs to return Result
-fn try_eval_special_form(lexems: Vec<Lexeme>, mut env: Rc<Environment>) -> Value {
+fn try_eval_special_form(lexems: Vec<Lexeme>, env: Rc<RefCell<Environment>>) -> Value {
     let head = &lexems[0];
 
     if let Lexeme::Symbol(head_symbol) = head {
@@ -43,5 +44,5 @@ fn try_eval_special_form(lexems: Vec<Lexeme>, mut env: Rc<Environment>) -> Value
         }
     }
 
-    todo!()
+    unimplemented!()
 }

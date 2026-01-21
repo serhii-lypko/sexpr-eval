@@ -2,10 +2,11 @@ use crate::eval::{Value, eval};
 use crate::reader::Lexeme;
 
 use crate::Environment;
+use std::cell::RefCell;
 use std::rc::Rc;
 
 // (if (< 3 5) a b)
-pub(super) fn eval_lazy_if(lexems: Vec<Lexeme>, mut env: Rc<Environment>) -> Value {
+pub(super) fn eval_lazy_if(lexems: Vec<Lexeme>, env: Rc<RefCell<Environment>>) -> Value {
     if lexems.len() != 4 {
         // TODO -> return Error
         todo!()
@@ -25,7 +26,7 @@ pub(super) fn eval_lazy_if(lexems: Vec<Lexeme>, mut env: Rc<Environment>) -> Val
 }
 
 // TODO -> return Result
-fn eval_cond(cond: Lexeme, mut env: Rc<Environment>) -> bool {
+fn eval_cond(cond: Lexeme, env: Rc<RefCell<Environment>>) -> bool {
     match cond {
         Lexeme::List(lexemes) => {
             if lexemes.len() != 3 {

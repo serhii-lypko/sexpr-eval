@@ -6,7 +6,14 @@ use reader::read;
 
 use crate::eval::Value;
 use reader::Lexeme;
+
+// TODO -> how these works
+use std::mem::{replace, swap, take};
+
+use std::cell::RefCell;
 use std::collections::HashMap;
+use std::marker::PhantomData;
+use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 
 /*
@@ -14,7 +21,7 @@ use std::rc::Rc;
     - [x] Condition branches
     - [ ] Execution environment!
     - [ ] Variables
-    - [ ] Functions, lambdas - practice De Bruijn indexes
+    - [ ] Functions, lambdas - practice De Bruijn indexes?rfh
     - [ ] Basic list manipulations
     - [ ] Quoting
 
@@ -38,29 +45,22 @@ use std::rc::Rc;
     - [ ] Threaded runtime
 */
 
+// TODO -> which design patterns could be applied?
+
 // TODO -> fix comments (now eliminate entire source input)
 fn main() {
-    // let source = r#"
-    //     (+ 10
-    //         (* 3 2))
-
-    //     (* 3 2)
-    // "#
-    // .to_string();
-
-    // let source = r#"
-    //     (def-var x 10)
-    //     (def-var y 20)
-
-    //     (+ x y)
-    // "#
-    // .to_string();
-
     let source = r#"
-        (def-var x 10)
-        (def-var y 10)
+        (def-var $x 10)
+        (def-var $y 15)
+
+        (* (+ $x $y) 12)
     "#
     .to_string();
+
+    // let source = r#"
+    //     (+ $x $y)
+    // "#
+    // .to_string();
 
     // let eval_res = eval(lexems);
     // dbg!(&eval_res);
@@ -69,8 +69,8 @@ fn main() {
     runtime.run(source);
 }
 
-// TODO -> implement display
-
+// TODO -> what is the lifetime of binded variables?
+#[derive(Debug)]
 pub(crate) struct Environment {
     bindings_storage: HashMap<String, Value>,
 }
@@ -81,17 +81,43 @@ impl Environment {
             bindings_storage: HashMap::new(),
         }
     }
+
+    fn set_var(&mut self, key: String, value: Value) {
+        let insert_res = self.bindings_storage.insert(key, value);
+
+        //
+    }
+
+    fn get_var(&self, key: String) -> Option<Value> {
+        self.bindings_storage.get(&key).cloned()
+    }
 }
 
+// impl Deref for Environment {
+//     type Target = HashMap<String, Value>;
+
+//     fn deref(&self) -> &Self::Target {
+//         &self.bindings_storage
+//     }
+// }
+
+// impl DerefMut for Environment {
+//     fn deref_mut(&mut self) -> &mut Self::Target {
+//         &mut self.bindings_storage
+//     }
+// }
+
 struct Runtime {
-    env: Rc<Environment>,
+    env: Rc<RefCell<Environment>>,
 }
 
 impl Runtime {
     fn new() -> Self {
         let env = Environment::new();
 
-        Runtime { env: Rc::new(env) }
+        Runtime {
+            env: Rc::new(RefCell::new(env)),
+        }
     }
 
     fn run(&mut self, source: String) {
@@ -102,6 +128,8 @@ impl Runtime {
             if lexeme.has_inner_lists() {
                 for expr in expressions {
                     let eval_res = eval(expr.clone(), self.env.clone());
+
+                    dbg!(eval_res);
                 }
 
                 return;

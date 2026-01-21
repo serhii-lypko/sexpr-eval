@@ -1,13 +1,14 @@
 use crate::Environment;
 use crate::eval::{Value, eval};
 use crate::reader::read;
+use std::cell::RefCell;
 use std::rc::Rc;
 
 #[test]
 fn test_eval_simple_addition() {
     let source = "(+ 10 15)".to_string();
     let lexeme = read(source);
-    let env = Rc::new(Environment::new());
+    let env = Rc::new(RefCell::new(Environment::new()));
     let result = eval(lexeme, env);
 
     match result {
@@ -20,7 +21,7 @@ fn test_eval_simple_addition() {
 fn test_eval_simple_multiplication() {
     let source = "(* 7 6)".to_string();
     let lexeme = read(source);
-    let env = Rc::new(Environment::new());
+    let env = Rc::new(RefCell::new(Environment::new()));
     let result = eval(lexeme, env);
 
     match result {
@@ -33,7 +34,7 @@ fn test_eval_simple_multiplication() {
 fn test_eval_nested_arithmetic() {
     let source = "(+ (* 3 2) 15)".to_string();
     let lexeme = read(source);
-    let env = Rc::new(Environment::new());
+    let env = Rc::new(RefCell::new(Environment::new()));
     let result = eval(lexeme, env);
 
     match result {
@@ -46,7 +47,7 @@ fn test_eval_nested_arithmetic() {
 fn test_eval_arithmetics_complex_nested() {
     let source = "(* (+ 2 3) (- 10 4))".to_string();
     let lexeme = read(source);
-    let env = Rc::new(Environment::new());
+    let env = Rc::new(RefCell::new(Environment::new()));
     let result = eval(lexeme, env);
 
     match result {
@@ -59,7 +60,7 @@ fn test_eval_arithmetics_complex_nested() {
 fn test_eval_if_true_condition() {
     let source = "(if (> 5 3) 42 99)".to_string();
     let lexeme = read(source);
-    let env = Rc::new(Environment::new());
+    let env = Rc::new(RefCell::new(Environment::new()));
     let result = eval(lexeme, env);
 
     match result {
@@ -72,7 +73,7 @@ fn test_eval_if_true_condition() {
 fn test_eval_if_false_condition() {
     let source = "(if (> 3 5) 42 99)".to_string();
     let lexeme = read(source);
-    let env = Rc::new(Environment::new());
+    let env = Rc::new(RefCell::new(Environment::new()));
     let result = eval(lexeme, env);
 
     match result {
@@ -85,7 +86,7 @@ fn test_eval_if_false_condition() {
 fn test_eval_nested_if() {
     let source = "(if (> 1 2) (+ 13 12) (if (> 12 13) 2 (* 12 12)))".to_string();
     let lexeme = read(source);
-    let env = Rc::new(Environment::new());
+    let env = Rc::new(RefCell::new(Environment::new()));
     let result = eval(lexeme, env);
 
     match result {
@@ -99,7 +100,7 @@ fn test_eval_nested_if() {
 fn test_eval_if_with_arithmetic_condition() {
     let source = "(if (< (+ 2 3) 10) (* 4 5) (/ 100 2))".to_string();
     let lexeme = read(source);
-    let env = Rc::new(Environment::new());
+    let env = Rc::new(RefCell::new(Environment::new()));
     let result = eval(lexeme, env);
 
     match result {
@@ -112,7 +113,7 @@ fn test_eval_if_with_arithmetic_condition() {
 fn test_eval_if_with_nested_arithmetic() {
     let source = "(if (>= (* 2 3) 6) (+ 10 (* 2 5)) 0)".to_string();
     let lexeme = read(source);
-    let env = Rc::new(Environment::new());
+    let env = Rc::new(RefCell::new(Environment::new()));
     let result = eval(lexeme, env);
 
     match result {
@@ -141,7 +142,7 @@ fn test_eval_comparison_operators() {
     for (source, expected) in test_cases {
         let full_source = format!("(if {} 1 0)", source);
         let lexeme = read(full_source);
-        let env = Rc::new(Environment::new());
+        let env = Rc::new(RefCell::new(Environment::new()));
         let result = eval(lexeme, env);
 
         match result {

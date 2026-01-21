@@ -2,12 +2,13 @@ use crate::eval::{Value, eval};
 use crate::reader::Lexeme;
 
 use crate::Environment;
+use std::cell::RefCell;
 use std::rc::Rc;
 
 // TODO -> needs to return Result
 pub(super) fn try_eval_simple_arithmetics(
     lexems: Vec<Lexeme>,
-    mut env: Rc<Environment>,
+    env: Rc<RefCell<Environment>>,
 ) -> Option<Value> {
     let head = &lexems[0];
 
@@ -40,7 +41,11 @@ pub(super) fn try_eval_simple_arithmetics(
 }
 
 // TODO -> return Result
-fn handle_builtin_arithmetics<T>(lexems: Vec<Lexeme>, handler: T, mut env: Rc<Environment>) -> Value
+fn handle_builtin_arithmetics<T>(
+    lexems: Vec<Lexeme>,
+    handler: T,
+    env: Rc<RefCell<Environment>>,
+) -> Value
 where
     T: FnOnce(isize, isize) -> Value,
 {
@@ -80,6 +85,35 @@ where
                 }
             }
         }
+
+        // -------------- -------------- Variables handling -------------- --------------
+
+        // Try to handle variables
+        (Lexeme::Symbol(maybe_var_lhs), Lexeme::Symbol(maybe_var_rhs)) => {
+            let lhs_var = check_variable(maybe_var_lhs);
+            let rhs_var = check_variable(maybe_var_rhs);
+
+            match (lhs_var, rhs_var) {
+                (Some(l_var), Some(r_var)) => {
+                    let env_ref = env.borrow();
+
+                    let lhs_val = env_ref.get_var(l_var.to_string());
+                    let rhs_val = env_ref.get_var(r_var.to_string());
+
+                    match (lhs_val, rhs_val) {
+                        (Some(l_val), Some(r_val)) => match (l_val, r_val) {
+                            (Value::Number(l_num), Value::Number(r_num)) => handler(l_num, r_num),
+                            _ => unimplemented!(),
+                        },
+                        _ => unimplemented!(),
+                    }
+                }
+                _ => unimplemented!(),
+            }
+        }
+
+        // TODO -> how to handle when list is on one of the sides
+        // TODO -> handle when symbol can be also on the left or on the right
         _ => {
             // TODO -> return error
             todo!()
@@ -87,4 +121,8 @@ where
     };
 
     res
+}
+
+fn check_variable(s: &str) -> Option<&str> {
+    if s.starts_with('$') { Some(s) } else { None }
 }

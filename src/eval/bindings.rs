@@ -1,28 +1,42 @@
+use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::Environment;
 use crate::eval::{Value, eval};
 use crate::reader::Lexeme;
 
-pub(super) fn eval_variable_binding(lexems: Vec<Lexeme>, mut env: Rc<Environment>) -> Value {
-    // if lexems.len() != 4 {
-    //     // TODO -> return Error
-    //     todo!()
-    // }
+// TODO -> tests
+pub(super) fn eval_variable_binding(lexems: Vec<Lexeme>, env: Rc<RefCell<Environment>>) -> Value {
+    if lexems.len() != 3 {
+        // TODO -> return Error
+        todo!()
+    }
 
-    dbg!(lexems);
+    let var = &lexems[1];
+    let var_name = match var {
+        Lexeme::Symbol(name) if name.starts_with('$') => name.to_owned(),
+        Lexeme::Symbol(name) => {
+            // TODO -> return Error
+            panic!("Variable name must start with '$', got: {}", name)
+        }
+        _ => {
+            // TODO -> return Error
+            panic!("Expected symbol for variable name, got: {:?}", var)
+        }
+    };
 
-    // let cond = &lexems[1];
-    // let lhs = &lexems[2];
-    // let rhs = &lexems[3];
+    let binding = &lexems[2];
+    let value = match binding {
+        Lexeme::Number(val) => Value::Number(*val),
+        Lexeme::Symbol(val) => Value::Symbol(val.clone()),
 
-    // let is_truthy = eval_cond(cond.clone(), env.clone());
+        // Lexeme::List(_) => eval(binding.clone(), env.clone()),
+        Lexeme::List(_) => todo!(),
 
-    // if is_truthy {
-    //     eval(lhs.clone(), env)
-    // } else {
-    //     eval(rhs.clone(), env)
-    // }
+        Lexeme::None => Value::None,
+    };
 
-    todo!()
+    env.borrow_mut().set_var(var_name, value);
+
+    Value::None
 }
