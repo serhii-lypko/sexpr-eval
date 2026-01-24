@@ -49,25 +49,25 @@ use std::rc::Rc;
 
 // TODO -> fix comments (now eliminate entire source input)
 fn main() {
-    let source = r#"
-        (def-var $x 10)
-        (def-var $y 15)
-
-        (* (+ $x $y) 12)
-    "#
-    .to_string();
-
     // let source = r#"
-    //     (+ $x $y)
+    //     (def-var $x 10)
+    //     (def-var $y 15)
+
+    //     (* (+ $x $y) 12)
     // "#
     // .to_string();
 
-    // let eval_res = eval(lexems);
-    // dbg!(&eval_res);
+    let source = r#"
+        (def-var $x (* (+ 2 3) (- 10 4)))
+        (+ $x 11)
+    "#
+    .to_string();
 
     let mut runtime = Runtime::new();
     runtime.run(source);
 }
+
+/* -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- */
 
 // TODO -> what is the lifetime of binded variables?
 #[derive(Debug)]
@@ -92,20 +92,6 @@ impl Environment {
         self.bindings_storage.get(&key).cloned()
     }
 }
-
-// impl Deref for Environment {
-//     type Target = HashMap<String, Value>;
-
-//     fn deref(&self) -> &Self::Target {
-//         &self.bindings_storage
-//     }
-// }
-
-// impl DerefMut for Environment {
-//     fn deref_mut(&mut self) -> &mut Self::Target {
-//         &mut self.bindings_storage
-//     }
-// }
 
 struct Runtime {
     env: Rc<RefCell<Environment>>,
@@ -136,6 +122,7 @@ impl Runtime {
             }
 
             let eval_res = eval(lexeme, self.env.clone());
+            // dbg!(eval_res);
         }
     }
 }

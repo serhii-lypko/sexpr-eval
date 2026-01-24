@@ -80,6 +80,7 @@ fn eval_cond(cond: Lexeme, env: Rc<RefCell<Environment>>) -> bool {
     }
 }
 
+// Currently supporting comparison of numbers
 fn handle_bultin_comparison<T>(lhs: Value, rhs: Value, handler: T) -> bool
 where
     T: FnOnce(isize, isize) -> bool,

@@ -25,13 +25,12 @@ pub(super) fn eval_variable_binding(lexems: Vec<Lexeme>, env: Rc<RefCell<Environ
         }
     };
 
-    let binding = &lexems[2];
-    let value = match binding {
+    let binding_val = &lexems[2];
+    let value = match binding_val {
         Lexeme::Number(val) => Value::Number(*val),
         Lexeme::Symbol(val) => Value::Symbol(val.clone()),
 
-        // Lexeme::List(_) => eval(binding.clone(), env.clone()),
-        Lexeme::List(_) => todo!(),
+        Lexeme::List(_) => eval(binding_val.clone(), env.clone()),
 
         Lexeme::None => Value::None,
     };
