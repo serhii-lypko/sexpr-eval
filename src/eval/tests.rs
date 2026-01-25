@@ -154,3 +154,23 @@ fn test_eval_comparison_operators() {
         }
     }
 }
+
+#[test]
+fn test_variables_binding_basic() {
+    let source = r#"
+        (def-var $x 10)
+        (def-var &y 15)
+
+        (+ $x $y)
+    "#
+    .to_string();
+
+    let lexeme = read(source);
+    let env = Rc::new(RefCell::new(Environment::new()));
+    let result = eval(lexeme, env);
+
+    match result {
+        Value::Number(n) => assert_eq!(n, 25),
+        _ => panic!("Expected number result"),
+    }
+}

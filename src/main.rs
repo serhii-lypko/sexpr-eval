@@ -19,9 +19,9 @@ use std::rc::Rc;
 /*
     Interesting features to implement:
     - [x] Condition branches
-    - [ ] Execution environment!
-    - [ ] Variables
-    - [ ] Functions, lambdas - practice De Bruijn indexes?rfh
+    - [x] Execution environment
+    - [x] Variables
+    - [x] Functions
     - [ ] Basic list manipulations
     - [ ] Quoting
 
@@ -29,6 +29,8 @@ use std::rc::Rc;
     - [ ] Stdout - display
     - [ ] Basic REPL
     - [ ] REPL with autocompletion based on simple prefix-trie
+
+    - [ ] Heterogeneous data
 
 
     Optimizations & improvements:
@@ -57,11 +59,41 @@ fn main() {
     // "#
     // .to_string();
 
+    // let source = r#"
+    //     (def-var $x (* (+ 2 3) (- 10 4)))
+    //     (+ $x 11)
+    // "#
+    // .to_string();
+
+    // let source = r#"
+    //     (def-fn add ($x $y) (* $x $y))
+    //     (add (+ 9 1) 7)
+    // "#
+    // .to_string();
+
+    // NOTE -> identity function
+    // let source = r#"
+    //     (def-fn add ($k) $k)
+    // "#
+    // .to_string();
+
     let source = r#"
-        (def-var $x (* (+ 2 3) (- 10 4)))
-        (+ $x 11)
+        (def-fn sum ($x $y)
+            (+ $x $y))
+
+        (def-fn
+            add-cond ($x $y)
+                (if (< $x $y)
+                    (+ $x $y)
+                    (* $x $y)))
+
+        (add-cond (sum (sum 100 200) 3) 7)
     "#
     .to_string();
+
+    // TODO -> what about recursion? ⭐️
+    // TODO -> factorial
+    // TODO -> fib
 
     let mut runtime = Runtime::new();
     runtime.run(source);
@@ -69,27 +101,86 @@ fn main() {
 
 /* -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- */
 
-// TODO -> what is the lifetime of binded variables?
+// TODO -> tests for variables
+// TODO -> tests for functions
+
+// TODO -> tests for runtime
+
+// (def-fn add ($x $y) (+ $x $y))
+// (add 10 12)
+
 #[derive(Debug)]
 pub(crate) struct Environment {
-    bindings_storage: HashMap<String, Value>,
+    var_bindings_storage: HashMap<String, Value>,
+
+    // TODO -> &str instead of String?
+    fn_bindings_storage: HashMap<String, FnBindings>,
+}
+
+#[derive(Debug, Clone)]
+struct FnBindings {
+    parameters: Vec<String>,
+    body: Lexeme,
 }
 
 impl Environment {
     fn new() -> Self {
         Environment {
-            bindings_storage: HashMap::new(),
+            var_bindings_storage: HashMap::new(),
+            fn_bindings_storage: HashMap::new(),
         }
     }
 
-    fn set_var(&mut self, key: String, value: Value) {
-        let insert_res = self.bindings_storage.insert(key, value);
-
-        //
+    fn build_with_var_bindings(parameters: Vec<String>, parameter_values: Vec<Value>) -> Self {
+        Environment {
+            // Fairly simple bindings execution
+            var_bindings_storage: parameters.into_iter().zip(parameter_values).collect(),
+            fn_bindings_storage: HashMap::new(),
+        }
     }
 
-    fn get_var(&self, key: String) -> Option<Value> {
-        self.bindings_storage.get(&key).cloned()
+    fn get_fn_bindings(&self, fn_descriptor: String) -> Option<FnBindings> {
+        self.fn_bindings_storage.get(&fn_descriptor).cloned()
+    }
+
+    fn get_var(&self, key: &str) -> Option<Value> {
+        self.var_bindings_storage.get(key).cloned()
+    }
+
+    fn set_var(&mut self, key: &str, value: Value) {
+        self.var_bindings_storage.insert(key.to_string(), value);
+    }
+
+    fn set_fn_bindings(&mut self, fn_name: String, parameters: Lexeme, body: Lexeme) {
+        // Positioned variables
+        let mut extracted_parameters: Vec<String> = vec![];
+
+        match parameters {
+            Lexeme::List(parameters) => {
+                for param_lexeme in parameters {
+                    match param_lexeme {
+                        Lexeme::Symbol(var) => {
+                            extracted_parameters.push(var);
+                        }
+                        _ => {
+                            // TODO -> return error of malformed parameters
+                            todo!()
+                        }
+                    }
+                }
+            }
+            _ => {
+                // TODO -> return error of malformed parameters
+                todo!()
+            }
+        };
+
+        let bindings = FnBindings {
+            parameters: extracted_parameters,
+            body,
+        };
+
+        self.fn_bindings_storage.insert(fn_name, bindings);
     }
 }
 

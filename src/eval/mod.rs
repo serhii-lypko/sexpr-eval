@@ -37,7 +37,7 @@ pub(crate) fn eval(lexeme: Lexeme, env: Rc<RefCell<Environment>>) -> Value {
 // TODO -> handle error cases when variable does not starts from $ by mistake
 fn resolve_symbol(symbol: &String, env: Rc<RefCell<Environment>>) -> Option<Value> {
     match check_variable(&symbol) {
-        Some(var_name) => match env.borrow().bindings_storage.get(var_name) {
+        Some(var_name) => match env.borrow().get_var(var_name) {
             Some(val) => Some(val.clone()),
             None => {
                 // TODO -> return error variable not found
@@ -72,8 +72,7 @@ fn resolve_list(lexemes: Vec<Lexeme>, env: Rc<RefCell<Environment>>) -> Value {
                 return res;
             }
 
-            // TODO -> implement user-defined functions resolution
-            unimplemented!()
+            bindings::eval_function(values, env)
         }
         _ => todo!(),
     }
@@ -87,9 +86,8 @@ fn try_eval_special_form(lexems: Vec<Lexeme>, env: Rc<RefCell<Environment>>) -> 
         match head_symbol.as_str() {
             "if" => return conditional::eval_lazy_if(lexems, env),
 
-            "def-var" => return bindings::eval_variable_binding(lexems, env),
-
-            "def-fn" => unimplemented!(),
+            "def-var" => return bindings::set_variable_binding(lexems, env),
+            "def-fn" => return bindings::set_function_binding(lexems, env),
 
             // Return Symbol as is
             _ => return Value::Symbol(head_symbol.clone()),
